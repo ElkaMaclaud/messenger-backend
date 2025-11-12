@@ -8,6 +8,18 @@ import {
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ChatsService } from './chats.service';
+import { Chat } from './entity/chats.entity';
+
+interface SocketWithUserData extends Socket {
+  data: {
+    userId: number;
+  };
+}
+
+interface JwtPayload {
+  sub: number;
+  username: string;
+}
 
 @WebSocketGateway({
   cors: {
@@ -16,7 +28,7 @@ import { ChatsService } from './chats.service';
 })
 export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
   constructor(
     private jwtService: JwtService,
@@ -25,17 +37,20 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private connectedUsers = new Map<number, string>();
 
-  async handleConnection(socket: Socket) {
+  async handleConnection(socket: SocketWithUserData): Promise<void> {
     try {
-      const token = socket.handshake.auth.token;
+      const auth = socket.handshake.auth as { token?: unknown };
+      const token = typeof auth.token === 'string' ? auth.token : undefined;
+
       if (!token) {
         socket.disconnect();
         return;
       }
 
-      const payload = this.jwtService.verify(token, {
+      const payload = this.jwtService.verify<JwtPayload>(token, {
         secret: 'super_secret_key',
       });
+
       const userId = payload.sub;
 
       this.connectedUsers.set(userId, socket.id);
@@ -47,12 +62,12 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
 
       console.log(`User ${userId} connected`);
-    } catch (error) {
+    } catch {
       socket.disconnect();
     }
   }
 
-  handleDisconnect(socket: Socket) {
+  handleDisconnect(socket: SocketWithUserData): void {
     if (socket.data.userId) {
       this.connectedUsers.delete(socket.data.userId);
       console.log(`User ${socket.data.userId} disconnected`);
@@ -60,20 +75,20 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('join_chat')
-  handleJoinChat(socket: Socket, chatId: number) {
+  handleJoinChat(socket: Socket, chatId: number): void {
     socket.join(`chat_${chatId}`);
   }
 
   @SubscribeMessage('leave_chat')
-  handleLeaveChat(socket: Socket, chatId: number) {
+  handleLeaveChat(socket: Socket, chatId: number): void {
     socket.leave(`chat_${chatId}`);
   }
 
   @SubscribeMessage('send_message')
   async handleMessage(
-    socket: Socket,
+    socket: SocketWithUserData,
     data: { chatId: number; content: string },
-  ) {
+  ): Promise<{ success: boolean; message?: unknown; error?: string }> {
     try {
       const userId = socket.data.userId;
       const message = await this.chatsService.sendMessage(
@@ -85,24 +100,26 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.server.to(`chat_${data.chatId}`).emit('new_message', message);
 
       return { success: true, message };
-    } catch (error) {
-      return { success: false, error: error.message };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      return { success: false, error: errorMessage };
     }
   }
 
   @SubscribeMessage('typing_start')
-  handleTypingStart(socket: Socket, chatId: number) {
+  handleTypingStart(socket: SocketWithUserData, chatId: number): void {
     const userId = socket.data.userId;
     socket.to(`chat_${chatId}`).emit('user_typing', { userId, typing: true });
   }
 
   @SubscribeMessage('typing_stop')
-  handleTypingStop(socket: Socket, chatId: number) {
+  handleTypingStop(socket: SocketWithUserData, chatId: number): void {
     const userId = socket.data.userId;
     socket.to(`chat_${chatId}`).emit('user_typing', { userId, typing: false });
   }
 
-  notifyNewChat(chat: Chat) {
+  notifyNewChat(chat: Chat): void {
     chat.participants.forEach((participant) => {
       const socketId = this.connectedUsers.get(participant.id);
       if (socketId) {

@@ -12,6 +12,13 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ChatsService } from './chats.service';
 
+interface AuthenticatedRequest extends Request {
+  user: {
+    id: number;
+    username: string;
+  };
+}
+
 @Controller('chats')
 @UseGuards(JwtAuthGuard)
 export class ChatsController {
@@ -20,7 +27,7 @@ export class ChatsController {
   @Post('private')
   async createPrivateChat(
     @Body() body: { targetUserId: number },
-    @Request() req,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.chatsService.createPrivateChat(req.user.id, body.targetUserId);
   }
@@ -28,7 +35,7 @@ export class ChatsController {
   @Post('group')
   async createGroupChat(
     @Body() body: { name: string; participantIds: number[] },
-    @Request() req,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.chatsService.createGroupChat(
       req.user.id,
@@ -38,19 +45,22 @@ export class ChatsController {
   }
 
   @Get()
-  async getUserChats(@Request() req) {
+  async getUserChats(@Request() req: AuthenticatedRequest) {
     return this.chatsService.getUserChats(req.user.id);
   }
 
   @Get(':id')
-  async getChat(@Param('id') chatId: number, @Request() req) {
+  async getChat(
+    @Param('id') chatId: number,
+    @Request() req: AuthenticatedRequest,
+  ) {
     return this.chatsService.getChat(chatId, req.user.id);
   }
 
   @Get(':id/messages')
   async getChatMessages(
     @Param('id') chatId: number,
-    @Request() req,
+    @Request() req: AuthenticatedRequest,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 50,
   ) {
@@ -61,7 +71,7 @@ export class ChatsController {
   async sendMessage(
     @Param('id') chatId: number,
     @Body() body: { content: string },
-    @Request() req,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.chatsService.sendMessage(chatId, req.user.id, body.content);
   }
@@ -70,7 +80,7 @@ export class ChatsController {
   async addParticipant(
     @Param('id') chatId: number,
     @Body() body: { userId: number },
-    @Request() req,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.chatsService.addParticipant(chatId, req.user.id, body.userId);
   }
@@ -79,7 +89,7 @@ export class ChatsController {
   async removeParticipant(
     @Param('id') chatId: number,
     @Param('userId') targetUserId: number,
-    @Request() req,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.chatsService.removeParticipant(
       chatId,

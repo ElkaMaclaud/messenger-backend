@@ -6,7 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Chat, ChatType } from './entity/chats.entity';
-import { Message } from './entity/message.entity';
+import { Message } from './/entity/message.entity';
 import { User } from '../users/user.entity/user.entity';
 
 @Injectable()
@@ -151,7 +151,11 @@ export class ChatsService {
     }
 
     const author = await this.userRepository.findOne({ where: { id: userId } });
+    if (!author) {
+      throw new NotFoundException('User not found');
+    }
 
+    // Фикс: правильное создание сообщения
     const message = this.messageRepository.create({
       content,
       author,
