@@ -1,8 +1,16 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToMany } from 'typeorm';
-import { Chat } from '../chats/chat.entity';
-import { Message } from '../chats/message.entity';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToMany,
+  OneToMany,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { Chat } from '../../chats/entity/chats.entity';
+import { Message } from '../../chats/entity/message.entity';
 
-@Entity()
+@Entity('users')
 export class User {
   @PrimaryGeneratedColumn()
   id: number;
@@ -16,17 +24,11 @@ export class User {
   @Column({ default: true })
   isActive: boolean;
 
-  @Column({ default: false })
-  isOnline: boolean;
+  @ManyToMany(() => Chat, (chat: Chat) => chat.participants)
+  chats!: Chat[];
 
-  @Column({ nullable: true })
-  lastSeen: Date;
-
-  @ManyToMany(() => Chat, chat => chat.participants)
-  chats: Chat[];
-
-  @OneToMany(() => Message, message => message.author)
-  messages: Message[];
+  @OneToMany(() => Message, (message: Message) => message.author)
+  messages!: Message[];
 
   @CreateDateColumn()
   createdAt: Date;

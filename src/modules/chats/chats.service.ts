@@ -1,9 +1,13 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Chat, ChatType } from './chat.entity';
-import { Message } from './message.entity';
-import { User } from '../users/user.entity';
+import { Chat, ChatType } from './entity/chats.entity';
+import { Message } from './entity/message.entity';
+import { User } from '../users/user.entity/user.entity';
 
 @Injectable()
 export class ChatsService {
@@ -23,7 +27,7 @@ export class ChatsService {
 
     const [user, targetUser] = await Promise.all([
       this.userRepository.findOne({ where: { id: userId } }),
-      this.userRepository.findOne({ where: { id: targetUserId } })
+      this.userRepository.findOne({ where: { id: targetUserId } }),
     ]);
 
     if (!user || !targetUser) {
@@ -33,7 +37,9 @@ export class ChatsService {
     const existingChat = await this.chatRepository
       .createQueryBuilder('chat')
       .innerJoin('chat.participants', 'user1', 'user1.id = :userId', { userId })
-      .innerJoin('chat.participants', 'user2', 'user2.id = :targetUserId', { targetUserId })
+      .innerJoin('chat.participants', 'user2', 'user2.id = :targetUserId', {
+        targetUserId,
+      })
       .where('chat.type = :type', { type: ChatType.PRIVATE })
       .getOne();
 
@@ -49,8 +55,14 @@ export class ChatsService {
     return this.chatRepository.save(chat);
   }
 
-  async createGroupChat(creatorId: number, name: string, participantIds: number[]): Promise<Chat> {
-    const creator = await this.userRepository.findOne({ where: { id: creatorId } });
+  async createGroupChat(
+    creatorId: number,
+    name: string,
+    participantIds: number[],
+  ): Promise<Chat> {
+    const creator = await this.userRepository.findOne({
+      where: { id: creatorId },
+    });
     if (!creator) {
       throw new NotFoundException('Creator not found');
     }
@@ -95,7 +107,12 @@ export class ChatsService {
     return chat;
   }
 
-  async getChatMessages(chatId: number, userId: number, page: number = 1, limit: number = 50): Promise<Message[]> {
+  async getChatMessages(
+    chatId: number,
+    userId: number,
+    page: number = 1,
+    limit: number = 50,
+  ): Promise<Message[]> {
     const chat = await this.chatRepository
       .createQueryBuilder('chat')
       .leftJoinAndSelect('chat.participants', 'participants')
@@ -117,7 +134,11 @@ export class ChatsService {
       .getMany();
   }
 
-  async sendMessage(chatId: number, userId: number, content: string): Promise<Message> {
+  async sendMessage(
+    chatId: number,
+    userId: number,
+    content: string,
+  ): Promise<Message> {
     const chat = await this.chatRepository
       .createQueryBuilder('chat')
       .leftJoinAndSelect('chat.participants', 'participants')
@@ -130,7 +151,7 @@ export class ChatsService {
     }
 
     const author = await this.userRepository.findOne({ where: { id: userId } });
-    
+
     const message = this.messageRepository.create({
       content,
       author,
@@ -140,7 +161,11 @@ export class ChatsService {
     return this.messageRepository.save(message);
   }
 
-  async addParticipant(chatId: number, adminId: number, userId: number): Promise<Chat> {
+  async addParticipant(
+    chatId: number,
+    adminId: number,
+    userId: number,
+  ): Promise<Chat> {
     const chat = await this.chatRepository
       .createQueryBuilder('chat')
       .leftJoinAndSelect('chat.participants', 'participants')
@@ -151,7 +176,7 @@ export class ChatsService {
       throw new NotFoundException('Chat not found');
     }
 
-    const isAdminParticipant = chat.participants.some(p => p.id === adminId);
+    const isAdminParticipant = chat.participants.some((p) => p.id === adminId);
     if (!isAdminParticipant) {
       throw new ForbiddenException('Only chat participants can add members');
     }
@@ -161,7 +186,7 @@ export class ChatsService {
       throw new NotFoundException('User not found');
     }
 
-    const isAlreadyParticipant = chat.participants.some(p => p.id === userId);
+    const isAlreadyParticipant = chat.participants.some((p) => p.id === userId);
     if (!isAlreadyParticipant) {
       chat.participants.push(user);
       return this.chatRepository.save(chat);
@@ -170,7 +195,11 @@ export class ChatsService {
     return chat;
   }
 
-  async removeParticipant(chatId: number, adminId: number, targetUserId: number): Promise<Chat> {
+  async removeParticipant(
+    chatId: number,
+    adminId: number,
+    targetUserId: number,
+  ): Promise<Chat> {
     const chat = await this.chatRepository
       .createQueryBuilder('chat')
       .leftJoinAndSelect('chat.participants', 'participants')
@@ -181,12 +210,12 @@ export class ChatsService {
       throw new NotFoundException('Chat not found');
     }
 
-    const isAdminParticipant = chat.participants.some(p => p.id === adminId);
+    const isAdminParticipant = chat.participants.some((p) => p.id === adminId);
     if (!isAdminParticipant) {
       throw new ForbiddenException('Only chat participants can remove members');
     }
 
-    chat.participants = chat.participants.filter(p => p.id !== targetUserId);
+    chat.participants = chat.participants.filter((p) => p.id !== targetUserId);
     return this.chatRepository.save(chat);
   }
 }
