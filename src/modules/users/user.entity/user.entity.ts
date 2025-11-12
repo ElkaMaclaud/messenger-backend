@@ -1,4 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToMany } from 'typeorm';
+import { Chat } from '../chats/chat.entity';
+import { Message } from '../chats/message.entity';
 
 @Entity()
 export class User {
@@ -10,4 +12,25 @@ export class User {
 
   @Column()
   password: string;
+
+  @Column({ default: true })
+  isActive: boolean;
+
+  @Column({ default: false })
+  isOnline: boolean;
+
+  @Column({ nullable: true })
+  lastSeen: Date;
+
+  @ManyToMany(() => Chat, chat => chat.participants)
+  chats: Chat[];
+
+  @OneToMany(() => Message, message => message.author)
+  messages: Message[];
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }
