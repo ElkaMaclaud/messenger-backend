@@ -11,7 +11,7 @@ import { ChatsModule } from './modules/chats/chats.module';
       host: 'localhost',
       port: 5432,
       username: 'postgres',
-      password: '',
+      password: 'qwerty', // локальный тестовый пока
       database: 'messenger_db',
       autoLoadEntities: true,
       synchronize: true,
