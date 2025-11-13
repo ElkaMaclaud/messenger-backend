@@ -3,8 +3,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ChatsModule } from './modules/chats/chats.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
+  controllers: [AppController],
+  providers: [AppService],
   imports: [
     TypeOrmModule.forRoot({
       type: 'postgres',

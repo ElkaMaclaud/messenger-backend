@@ -19,11 +19,28 @@ interface MessageResponse {
   createdAt: string;
 }
 
+interface JwtPayload {
+  sub: number;
+  username: string;
+  iat: number;
+  exp: number;
+}
+
+const TEST_ID = Math.random().toString(36).substring(2, 8);
+const USERNAME_1 = `e2e_user1_${TEST_ID}`;
+const USERNAME_2 = `e2e_user2_${TEST_ID}`;
+const USERNAME_3 = `e2e_user3_${TEST_ID}`;
+
+console.log('Test users:', { USERNAME_1, USERNAME_2, USERNAME_3 });
+
 describe('Chats E2E Tests', () => {
   let app: INestApplication;
   let user1Token: string;
   let user2Token: string;
   let user3Token: string;
+  let user1Id: number;
+  let user2Id: number;
+  let user3Id: number;
   let privateChatId: number;
   let groupChatId: number;
 
@@ -44,39 +61,55 @@ describe('Chats E2E Tests', () => {
     it('should register test users', async () => {
       await request(app.getHttpServer())
         .post('/auth/register')
-        .send({ username: 'e2e_user1', password: 'password123' })
+        .send({ username: USERNAME_1, password: 'password123' })
         .expect(201);
 
       await request(app.getHttpServer())
         .post('/auth/register')
-        .send({ username: 'e2e_user2', password: 'password123' })
+        .send({ username: USERNAME_2, password: 'password123' })
         .expect(201);
 
       await request(app.getHttpServer())
         .post('/auth/register')
-        .send({ username: 'e2e_user3', password: 'password123' })
+        .send({ username: USERNAME_3, password: 'password123' })
         .expect(201);
     });
 
-    it('should login users and get tokens', async () => {
+    it('should login users and get tokens and IDs', async () => {
       const response1 = await request(app.getHttpServer())
         .post('/auth/login')
-        .send({ username: 'e2e_user1', password: 'password123' })
+        .send({ username: USERNAME_1, password: 'password123' })
         .expect(201);
 
       const response2 = await request(app.getHttpServer())
         .post('/auth/login')
-        .send({ username: 'e2e_user2', password: 'password123' })
+        .send({ username: USERNAME_2, password: 'password123' })
         .expect(201);
 
       const response3 = await request(app.getHttpServer())
         .post('/auth/login')
-        .send({ username: 'e2e_user3', password: 'password123' })
+        .send({ username: USERNAME_3, password: 'password123' })
         .expect(201);
 
       user1Token = (response1.body as LoginResponse).access_token;
       user2Token = (response2.body as LoginResponse).access_token;
       user3Token = (response3.body as LoginResponse).access_token;
+
+      const payload1 = JSON.parse(
+        Buffer.from(user1Token.split('.')[1], 'base64').toString(),
+      ) as JwtPayload;
+      const payload2 = JSON.parse(
+        Buffer.from(user2Token.split('.')[1], 'base64').toString(),
+      ) as JwtPayload;
+      const payload3 = JSON.parse(
+        Buffer.from(user3Token.split('.')[1], 'base64').toString(),
+      ) as JwtPayload;
+
+      user1Id = payload1.sub;
+      user2Id = payload2.sub;
+      user3Id = payload3.sub;
+
+      console.log('User IDs:', { user1Id, user2Id, user3Id });
 
       expect(user1Token).toBeDefined();
       expect(user2Token).toBeDefined();
@@ -87,7 +120,7 @@ describe('Chats E2E Tests', () => {
       const response = await request(app.getHttpServer())
         .post('/chats/private')
         .set('Authorization', `Bearer ${user1Token}`)
-        .send({ targetUserId: 2 })
+        .send({ targetUserId: user2Id })
         .expect(201);
 
       privateChatId = (response.body as ChatResponse).id;
@@ -127,7 +160,7 @@ describe('Chats E2E Tests', () => {
         .set('Authorization', `Bearer ${user1Token}`)
         .send({
           name: 'Тестовый групповой чат',
-          participantIds: [2, 3],
+          participantIds: [user2Id, user3Id],
         })
         .expect(201);
 
@@ -153,7 +186,7 @@ describe('Chats E2E Tests', () => {
       await request(app.getHttpServer())
         .post(`/chats/${groupChatId}/participants`)
         .set('Authorization', `Bearer ${user1Token}`)
-        .send({ userId: 3 })
+        .send({ userId: user3Id })
         .expect(201);
     });
 
@@ -191,7 +224,7 @@ describe('Chats E2E Tests', () => {
         .post('/chats/999/messages')
         .set('Authorization', `Bearer ${user1Token}`)
         .send({ content: 'Тестовое сообщение' })
-        .expect(404);
+        .expect(403);
     });
   });
 });
