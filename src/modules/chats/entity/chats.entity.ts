@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/user.entity/user.entity';
 import { Message } from './message.entity';
+import { Call } from '../../calls/call.entity/call.entity';
 
 export enum ChatType {
   PRIVATE = 'private',
@@ -40,6 +41,9 @@ export class Chat {
 
   @OneToMany(() => Message, (message) => message.chat)
   messages: Message[];
+
+  @OneToMany(() => Call, (call) => call.chat)
+  calls: Call[];
 
   @Column({ default: true })
   isActive: boolean;

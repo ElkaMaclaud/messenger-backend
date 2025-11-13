@@ -155,7 +155,6 @@ export class ChatsService {
       throw new NotFoundException('User not found');
     }
 
-    // Фикс: правильное создание сообщения
     const message = this.messageRepository.create({
       content,
       author,

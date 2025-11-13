@@ -5,6 +5,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ChatsModule } from './modules/chats/chats.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { CallsModule } from './modules/calls/calls.module';
 
 @Module({
   controllers: [AppController],
@@ -23,6 +24,7 @@ import { AppService } from './app.service';
     UsersModule,
     AuthModule,
     ChatsModule,
+    CallsModule,
   ],
 })
 export class AppModule {}
