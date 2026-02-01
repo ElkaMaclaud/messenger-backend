@@ -14,7 +14,7 @@ import { CallsModule } from './modules/calls/calls.module';
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: 'localhost',
-      port: 5432,
+      port: 5433, // 5432 - занят уже
       username: 'postgres',
       password: 'qwerty', // локальный тестовый пока
       database: 'messenger_db',
