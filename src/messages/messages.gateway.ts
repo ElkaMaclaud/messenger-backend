@@ -8,6 +8,11 @@ import {
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 
+interface JwtPayload {
+  id: number;
+  username: string;
+}
+
 @WebSocketGateway({
   cors: {
     origin: '*',
@@ -22,15 +27,20 @@ export class MessagesGateway {
   private userSockets = new Map<number, string>();
 
   handleConnection(client: Socket) {
+    const auth = client.handshake.auth as { token?: string };
+    const token = auth.token;
+
+    if (!token || typeof token !== 'string') {
+      client.disconnect();
+      return;
+    }
+
     try {
-      const token = client.handshake.auth.token;
-      const decoded = this.jwtService.verify(token);
+      const decoded = this.jwtService.verify<JwtPayload>(token);
       this.userSockets.set(decoded.id, client.id);
-
       client.join(`user_${decoded.id}`);
-
       console.log(`User ${decoded.id} connected`);
-    } catch (error) {
+    } catch {
       client.disconnect();
     }
   }
@@ -54,11 +64,14 @@ export class MessagesGateway {
       offer: RTCSessionDescriptionInit;
     },
   ) {
-    this.server.to(`user_${data.targetUserId}`).emit('call:offer', {
-      callId: data.callId,
-      offer: data.offer,
-      fromUserId: this.getUserIdBySocket(client),
-    });
+    const fromUserId = this.getUserIdBySocket(client);
+    if (fromUserId) {
+      this.server.to(`user_${data.targetUserId}`).emit('call:offer', {
+        callId: data.callId,
+        offer: data.offer,
+        fromUserId,
+      });
+    }
   }
 
   @SubscribeMessage('call:answer')
@@ -71,11 +84,14 @@ export class MessagesGateway {
       answer: RTCSessionDescriptionInit;
     },
   ) {
-    this.server.to(`user_${data.targetUserId}`).emit('call:answer', {
-      callId: data.callId,
-      answer: data.answer,
-      fromUserId: this.getUserIdBySocket(client),
-    });
+    const fromUserId = this.getUserIdBySocket(client);
+    if (fromUserId) {
+      this.server.to(`user_${data.targetUserId}`).emit('call:answer', {
+        callId: data.callId,
+        answer: data.answer,
+        fromUserId,
+      });
+    }
   }
 
   @SubscribeMessage('call:ice-candidate')
@@ -88,11 +104,14 @@ export class MessagesGateway {
       candidate: RTCIceCandidateInit;
     },
   ) {
-    this.server.to(`user_${data.targetUserId}`).emit('call:ice-candidate', {
-      callId: data.callId,
-      candidate: data.candidate,
-      fromUserId: this.getUserIdBySocket(client),
-    });
+    const fromUserId = this.getUserIdBySocket(client);
+    if (fromUserId) {
+      this.server.to(`user_${data.targetUserId}`).emit('call:ice-candidate', {
+        callId: data.callId,
+        candidate: data.candidate,
+        fromUserId,
+      });
+    }
   }
 
   @SubscribeMessage('call:end')
@@ -104,13 +123,16 @@ export class MessagesGateway {
       targetUserId: number;
     },
   ) {
-    this.server.to(`user_${data.targetUserId}`).emit('call:end', {
-      callId: data.callId,
-      fromUserId: this.getUserIdBySocket(client),
-    });
+    const fromUserId = this.getUserIdBySocket(client);
+    if (fromUserId) {
+      this.server.to(`user_${data.targetUserId}`).emit('call:end', {
+        callId: data.callId,
+        fromUserId,
+      });
+    }
   }
 
-  private getUserIdBySocket(client: Socket): number {
+  private getUserIdBySocket(client: Socket): number | null {
     for (const [userId, socketId] of this.userSockets.entries()) {
       if (socketId === client.id) {
         return userId;
