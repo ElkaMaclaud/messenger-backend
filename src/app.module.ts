@@ -7,6 +7,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CallsModule } from './modules/calls/calls.module';
 import { FilesModule } from './modules/files/files.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   controllers: [AppController],
@@ -27,6 +28,7 @@ import { FilesModule } from './modules/files/files.module';
     ChatsModule,
     CallsModule,
     FilesModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}
