@@ -1,22 +1,23 @@
 version: '3.8'
 
+networks:
+  default:
+    name: ${COMPOSE_NETWORK_NAME}
+    driver: bridge
+
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: messenger_db
+    container_name: ${COMPOSE_PROJECT_NAME}_db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: qwerty
       POSTGRES_DB: messenger_db
     ports:
-      - "5433:5432"  # Используем другой порт (5433 вместо 5432)
+      - "${PG_PORT}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - ${COMPOSE_VOLUME_PREFIX}pg_data:/var/lib/postgresql/data
 
 volumes:
-  postgres_data:
+  pg_data:
+    name: ${COMPOSE_VOLUME_PREFIX}pg_data
