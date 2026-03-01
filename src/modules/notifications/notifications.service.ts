@@ -1,14 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@mikro-orm/nestjs';
-import { EntityRepository } from '@mikro-orm/core';
-import { Notification } from './notification.entity';
+import { EntityRepository } from '@mikro-orm/postgresql';
+import { Notification } from '../notifications/notifications/entities/notification.entity';
 import * as webPush from 'web-push';
 
-const VAPID_PUBLIC_KEY = 'ВАШ_PUBLIC_KEY';
-const VAPID_PRIVATE_KEY = 'ВАШ_PRIVATE_KEY';
-const VAPID_SUBJECT = 'mailto:example@yourdomain.org';
+// Временно отключим VAPID для тестирования
+// Получите реальные ключи: npx web-push generate-vapid-keys
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || 'test-public-key';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || 'test-private-key';
+const VAPID_SUBJECT =
+  process.env.VAPID_SUBJECT || 'mailto:example@yourdomain.org';
 
-webPush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+if (VAPID_PUBLIC_KEY !== 'test-public-key') {
+  webPush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+}
 
 interface PushSubscription {
   endpoint: string;
@@ -23,11 +28,14 @@ export class NotificationsService {
   private userSubscriptions = new Map<number, PushSubscription[]>();
 
   constructor(
-    @InjectRepository(Notification)
+    @InjectRepository(Notification)  
     private notificationRepository: EntityRepository<Notification>,
   ) {}
 
-  async saveSubscription(userId: number, subscription: PushSubscription) {
+  async saveSubscription(
+    userId: number,
+    subscription: PushSubscription,
+  ): Promise<void> {
     const subscriptions = this.userSubscriptions.get(userId) || [];
     const exists = subscriptions.some(
       (sub) => sub.endpoint === subscription.endpoint,
@@ -59,8 +67,10 @@ export class NotificationsService {
     });
 
     await this.notificationRepository.persistAndFlush(notification);
-    е;
-    await this.sendPushNotification(userId, { title, body, data });
+
+    this.sendPushNotification(userId, { title, body, data }).catch(
+      console.error,
+    );
 
     return notification;
   }
@@ -68,10 +78,15 @@ export class NotificationsService {
   private async sendPushNotification(
     userId: number,
     payload: { title: string; body: string; data?: Record<string, any> },
-  ) {
+  ): Promise<void> {
     const subscriptions = this.userSubscriptions.get(userId);
 
     if (!subscriptions || subscriptions.length === 0) {
+      return;
+    }
+
+    if (VAPID_PUBLIC_KEY === 'test-public-key') {
+      console.log('Push notifications disabled (test mode)');
       return;
     }
 
@@ -85,7 +100,7 @@ export class NotificationsService {
     const promises = subscriptions.map((subscription) => {
       return webPush
         .sendNotification(subscription, pushPayload)
-        .catch((error) => {
+        .catch((error: any) => {
           console.error('Push notification failed:', error);
           if (error.statusCode === 410) {
             this.removeSubscription(userId, subscription.endpoint);
@@ -96,7 +111,7 @@ export class NotificationsService {
     await Promise.all(promises);
   }
 
-  private removeSubscription(userId: number, endpoint: string) {
+  private removeSubscription(userId: number, endpoint: string): void {
     const subscriptions = this.userSubscriptions.get(userId);
     if (subscriptions) {
       const filtered = subscriptions.filter((sub) => sub.endpoint !== endpoint);
