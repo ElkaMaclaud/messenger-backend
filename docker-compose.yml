@@ -1,23 +1,16 @@
-version: '3.8'
-
-networks:
-  default:
-    name: ${COMPOSE_NETWORK_NAME}
-    driver: bridge
+version: "3.8"
 
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: ${COMPOSE_PROJECT_NAME}_db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: qwerty
       POSTGRES_DB: messenger_db
     ports:
-      - "${PG_PORT}:5432"
+      - "5444:5432"   # фиксированный порт для pet-проекта
     volumes:
-      - ${COMPOSE_VOLUME_PREFIX}pg_data:/var/lib/postgresql/data
+      - messenger_pet_pg_data:/var/lib/postgresql/data
 
 volumes:
-  pg_data:
-    name: ${COMPOSE_VOLUME_PREFIX}pg_data
+  messenger_pet_pg_data:
