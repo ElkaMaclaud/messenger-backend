@@ -15,7 +15,8 @@ interface JwtPayload {
 
 @WebSocketGateway({
   cors: {
-    origin: '*',
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true,
   },
 })
 export class MessagesGateway {
@@ -49,6 +50,7 @@ export class MessagesGateway {
     for (const [userId, socketId] of this.userSockets.entries()) {
       if (socketId === client.id) {
         this.userSockets.delete(userId);
+        console.log(`User ${userId} disconnected`);
         break;
       }
     }
