@@ -25,13 +25,13 @@ export enum CallType {
 @Entity()
 export class Call {
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   @ManyToOne(() => Chat, (chat) => chat.calls)
-  chat: Chat;
+  chat!: Chat;
 
   @ManyToOne(() => User)
-  caller: User;
+  caller!: User;
 
   @ManyToOne(() => User, { nullable: true })
   receiver?: User;
@@ -41,14 +41,14 @@ export class Call {
     enum: CallStatus,
     default: CallStatus.INITIATED,
   })
-  status: CallStatus;
+  status!: CallStatus;
 
   @Column({
     type: 'enum',
     enum: CallType,
     default: CallType.VOICE,
   })
-  type: CallType;
+  type!: CallType;
 
   @Column({ nullable: true })
   sdpOffer?: string;
@@ -60,14 +60,14 @@ export class Call {
   iceCandidates?: string;
 
   @Column({ type: 'timestamp', nullable: true })
-  startedAt: Date;
+  startedAt?: Date;
 
   @Column({ type: 'timestamp', nullable: true })
-  endedAt: Date;
+  endedAt?: Date;
 
   @Column({ type: 'int', nullable: true })
-  duration: number;
+  duration?: number;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 }
