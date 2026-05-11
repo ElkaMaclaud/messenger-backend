@@ -4,6 +4,7 @@ import {
   Column,
   ManyToOne,
   CreateDateColumn,
+  Index,
 } from 'typeorm';
 import { Chat } from '../../chats/entity/chats.entity';
 import { User } from '../../users/user.entity/user.entity';
@@ -23,6 +24,8 @@ export enum CallType {
 }
 
 @Entity()
+@Index(['chat', 'status'])
+@Index(['chat', 'createdAt'])
 export class Call {
   @PrimaryGeneratedColumn()
   id!: number;
@@ -56,8 +59,8 @@ export class Call {
   @Column({ nullable: true })
   sdpAnswer?: string;
 
-  @Column({ nullable: true })
-  iceCandidates?: string;
+  @Column({ type: 'json', nullable: true })
+  iceCandidates?: any[];
 
   @Column({ type: 'timestamp', nullable: true })
   startedAt?: Date;

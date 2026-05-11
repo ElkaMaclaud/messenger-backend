@@ -7,6 +7,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
+import { Logger } from '@nestjs/common';
 import { CallsService } from './calls.service';
 import { CallType } from './call.entity/call.entity';
 
@@ -29,7 +30,8 @@ interface CallResponse {
 
 @WebSocketGateway({
   cors: {
-    origin: '*',
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true,
   },
   namespace: '/calls',
 })
@@ -37,7 +39,8 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  private userSockets = new Map<number, string>();
+  private readonly logger = new Logger(CallsGateway.name);
+  private userSockets = new Map<number, Set<string>>();
 
   constructor(
     private jwtService: JwtService,
@@ -50,20 +53,30 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const payload = this.jwtService.verify<JwtPayload>(token);
       socket.user = payload;
 
-      this.userSockets.set(payload.sub, socket.id);
-      console.log(`User ${payload.username} connected to calls gateway`);
+      if (!this.userSockets.has(payload.sub)) {
+        this.userSockets.set(payload.sub, new Set());
+      }
+      this.userSockets.get(payload.sub)!.add(socket.id);
+
+      this.logger.log(`User ${payload.username} connected to calls gateway`);
 
       socket.join(`user_${payload.sub}`);
     } catch (error) {
-      console.log(error);
+      this.logger.error('Connection error:', error);
       socket.disconnect();
     }
   }
 
   handleDisconnect(socket: AuthenticatedSocket) {
     if (socket.user) {
-      this.userSockets.delete(socket.user.sub);
-      console.log(
+      const sockets = this.userSockets.get(socket.user.sub);
+      if (sockets) {
+        sockets.delete(socket.id);
+        if (sockets.size === 0) {
+          this.userSockets.delete(socket.user.sub);
+        }
+      }
+      this.logger.log(
         `User ${socket.user.username} disconnected from calls gateway`,
       );
     }
@@ -72,13 +85,13 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('join_chat')
   handleJoinChat(socket: AuthenticatedSocket, chatId: number): void {
     socket.join(`chat_${chatId}`);
-    console.log(`User ${socket.user.username} joined chat ${chatId}`);
+    this.logger.log(`User ${socket.user.username} joined chat ${chatId}`);
   }
 
   @SubscribeMessage('leave_chat')
   handleLeaveChat(socket: AuthenticatedSocket, chatId: number): void {
     socket.leave(`chat_${chatId}`);
-    console.log(`User ${socket.user.username} left chat ${chatId}`);
+    this.logger.log(`User ${socket.user.username} left chat ${chatId}`);
   }
 
   @SubscribeMessage('initiate_call')
@@ -120,11 +133,13 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         data.sdpAnswer,
       );
 
-      const callerSocketId = this.userSockets.get(call.caller.id);
-      if (callerSocketId) {
-        this.server.to(callerSocketId).emit('call_accepted', {
-          callId: call.id,
-          sdpAnswer: data.sdpAnswer,
+      const callerSockets = this.userSockets.get(call.caller.id);
+      if (callerSockets) {
+        callerSockets.forEach((socketId) => {
+          this.server.to(socketId).emit('call_accepted', {
+            callId: call.id,
+            sdpAnswer: data.sdpAnswer,
+          });
         });
       }
 
@@ -162,11 +177,13 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     socket: AuthenticatedSocket,
     data: { callId: number; candidate: unknown; targetUserId: number },
   ): void {
-    const targetSocketId = this.userSockets.get(data.targetUserId);
-    if (targetSocketId) {
-      this.server.to(targetSocketId).emit('ice_candidate', {
-        callId: data.callId,
-        candidate: data.candidate,
+    const targetSockets = this.userSockets.get(data.targetUserId);
+    if (targetSockets) {
+      targetSockets.forEach((socketId) => {
+        this.server.to(socketId).emit('ice_candidate', {
+          callId: data.callId,
+          candidate: data.candidate,
+        });
       });
     }
   }
@@ -176,12 +193,34 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     socket: AuthenticatedSocket,
     data: { callId: number; sdp: unknown; targetUserId: number },
   ): void {
-    const targetSocketId = this.userSockets.get(data.targetUserId);
-    if (targetSocketId) {
-      this.server.to(targetSocketId).emit('sdp_offer', {
-        callId: data.callId,
-        sdp: data.sdp,
+    const targetSockets = this.userSockets.get(data.targetUserId);
+    if (targetSockets) {
+      targetSockets.forEach((socketId) => {
+        this.server.to(socketId).emit('sdp_offer', {
+          callId: data.callId,
+          sdp: data.sdp,
+        });
       });
+    }
+  }
+
+  @SubscribeMessage('reject_call')
+  async handleRejectCall(
+    socket: AuthenticatedSocket,
+    callId: number,
+  ): Promise<CallResponse> {
+    try {
+      const call = await this.callsService.rejectCall(callId, socket.user.sub);
+
+      this.server.to(`chat_${call.chat.id}`).emit('call_rejected', {
+        callId: call.id,
+      });
+
+      return { success: true, call };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      return { success: false, error: errorMessage };
     }
   }
 }

@@ -6,10 +6,13 @@ import {
   Param,
   UseGuards,
   Request,
+  ValidationPipe,
+  UsePipes,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CallsService } from './calls.service';
 import { CallType, Call } from './call.entity/call.entity';
+import { InitiateCallDto, AnswerCallDto } from './dto/calls.dto';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -20,13 +23,14 @@ interface AuthenticatedRequest extends Request {
 
 @Controller('calls')
 @UseGuards(JwtAuthGuard)
+@UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
 export class CallsController {
   constructor(private callsService: CallsService) {}
 
   @Post(':chatId/initiate')
   async initiateCall(
     @Param('chatId') chatId: number,
-    @Body() body: { type?: CallType },
+    @Body() body: InitiateCallDto,
     @Request() req: AuthenticatedRequest,
   ): Promise<Call> {
     return this.callsService.initiateCall(
@@ -39,7 +43,7 @@ export class CallsController {
   @Post(':callId/answer')
   async answerCall(
     @Param('callId') callId: number,
-    @Body() body: { sdpAnswer: string },
+    @Body() body: AnswerCallDto,
     @Request() req: AuthenticatedRequest,
   ): Promise<Call> {
     return this.callsService.answerCall(callId, req.user.id, body.sdpAnswer);
@@ -51,6 +55,14 @@ export class CallsController {
     @Request() req: AuthenticatedRequest,
   ): Promise<Call> {
     return this.callsService.endCall(callId, req.user.id);
+  }
+
+  @Post(':callId/reject')
+  async rejectCall(
+    @Param('callId') callId: number,
+    @Request() req: AuthenticatedRequest,
+  ): Promise<Call> {
+    return this.callsService.rejectCall(callId, req.user.id);
   }
 
   @Get('chat/:chatId/history')

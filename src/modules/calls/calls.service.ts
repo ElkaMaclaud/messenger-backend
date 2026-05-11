@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -11,6 +12,9 @@ import { User } from '../users/user.entity/user.entity';
 
 @Injectable()
 export class CallsService {
+  private callTimeouts = new Map<number, NodeJS.Timeout>();
+  private readonly CALL_TIMEOUT_MS = 30000;
+
   constructor(
     @InjectRepository(Call)
     private callsRepository: Repository<Call>,
@@ -51,7 +55,11 @@ export class CallsService {
       status: CallStatus.INITIATED,
     });
 
-    return this.callsRepository.save(call);
+    const savedCall = await this.callsRepository.save(call);
+
+    this.setCallTimeout(savedCall.id);
+
+    return savedCall;
   }
 
   async answerCall(
@@ -75,6 +83,8 @@ export class CallsService {
     call.status = CallStatus.ACTIVE;
     call.sdpAnswer = sdpAnswer;
     call.startedAt = new Date();
+
+    this.clearCallTimeout(callId);
 
     return this.callsRepository.save(call);
   }
@@ -130,7 +140,65 @@ export class CallsService {
       );
     }
 
+    this.clearCallTimeout(callId);
+
     return this.callsRepository.save(call);
+  }
+
+  async rejectCall(callId: number, userId: number): Promise<Call> {
+    const call = await this.callsRepository.findOne({
+      where: { id: callId },
+      relations: ['caller', 'receiver', 'chat'],
+    });
+
+    if (!call) {
+      throw new NotFoundException('Call not found');
+    }
+
+    if (call.receiver?.id !== userId) {
+      throw new ForbiddenException('You are not the receiver of this call');
+    }
+
+    if (call.status !== CallStatus.INITIATED && call.status !== CallStatus.RINGING) {
+      throw new BadRequestException('Call cannot be rejected in current state');
+    }
+
+    call.status = CallStatus.REJECTED;
+    call.endedAt = new Date();
+
+    this.clearCallTimeout(callId);
+
+    return this.callsRepository.save(call);
+  }
+
+  private setCallTimeout(callId: number): void {
+    const timeout = setTimeout(async () => {
+      await this.markCallAsMissed(callId);
+    }, this.CALL_TIMEOUT_MS);
+
+    this.callTimeouts.set(callId, timeout);
+  }
+
+  private clearCallTimeout(callId: number): void {
+    const timeout = this.callTimeouts.get(callId);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.callTimeouts.delete(callId);
+    }
+  }
+
+  private async markCallAsMissed(callId: number): Promise<void> {
+    const call = await this.callsRepository.findOne({
+      where: { id: callId },
+    });
+
+    if (call && (call.status === CallStatus.INITIATED || call.status === CallStatus.RINGING)) {
+      call.status = CallStatus.MISSED;
+      call.endedAt = new Date();
+      await this.callsRepository.save(call);
+    }
+
+    this.callTimeouts.delete(callId);
   }
 
   async getCallHistory(chatId: number, userId: number): Promise<Call[]> {
