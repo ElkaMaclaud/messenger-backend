@@ -4,9 +4,9 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Chat, ChatType } from './entity/chats.entity';
-import { Message } from './/entity/message.entity';
+import { Message } from './entity/message.entity';
 import { User } from '../users/user.entity/user.entity';
 
 @Injectable()
@@ -67,7 +67,9 @@ export class ChatsService {
       throw new NotFoundException('Creator not found');
     }
 
-    const participants = await this.userRepository.findByIds(participantIds);
+    const participants = await this.userRepository.findBy({
+      id: In(participantIds),
+    });
     participants.push(creator);
 
     const chat = this.chatRepository.create({
