@@ -13,6 +13,12 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ChatsService } from './chats.service';
+import {
+  CreatePrivateChatDto,
+  CreateGroupChatDto,
+  SendMessageDto,
+  AddParticipantDto,
+} from './dto/chats.dto';
 import type { AuthenticatedRequest } from '../auth/types/authenticated-request.type';
 
 @Controller('chats')
@@ -22,7 +28,7 @@ export class ChatsController {
 
   @Post('private')
   async createPrivateChat(
-    @Body() body: { targetUserId: number },
+    @Body() body: CreatePrivateChatDto,
     @Request() req: AuthenticatedRequest,
   ) {
     return this.chatsService.createPrivateChat(req.user.id, body.targetUserId);
@@ -30,7 +36,7 @@ export class ChatsController {
 
   @Post('group')
   async createGroupChat(
-    @Body() body: { name: string; participantIds: number[] },
+    @Body() body: CreateGroupChatDto,
     @Request() req: AuthenticatedRequest,
   ) {
     return this.chatsService.createGroupChat(
@@ -66,7 +72,7 @@ export class ChatsController {
   @Post(':id/messages')
   async sendMessage(
     @Param('id', ParseIntPipe) chatId: number,
-    @Body() body: { content: string },
+    @Body() body: SendMessageDto,
     @Request() req: AuthenticatedRequest,
   ) {
     return this.chatsService.sendMessage(chatId, req.user.id, body.content);
@@ -75,7 +81,7 @@ export class ChatsController {
   @Post(':id/participants')
   async addParticipant(
     @Param('id', ParseIntPipe) chatId: number,
-    @Body() body: { userId: number },
+    @Body() body: AddParticipantDto,
     @Request() req: AuthenticatedRequest,
   ) {
     return this.chatsService.addParticipant(chatId, req.user.id, body.userId);
