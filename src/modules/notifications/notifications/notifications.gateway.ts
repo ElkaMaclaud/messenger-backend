@@ -9,18 +9,24 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
-import { NotificationsService } from './notifications.service';
-import { PushSubscriptionDto } from './dto/push-subscription.dto';
+import { NotificationsService } from '../notifications.service';
+import { PushSubscriptionDto } from '../dto/push-subscription.dto';
+import { JWT_SECRET } from '../../../config/constants';
 
 interface JwtPayload {
-  id: number;
+  sub: number;
   username: string;
+}
+
+interface SocketWithUser extends Socket {
+  data: { userId: number };
 }
 
 @WebSocketGateway({
   namespace: 'notifications',
   cors: {
-    origin: '*',
+    origin: process.env.FRONTEND_URL ?? 'http://localhost:3000',
+    credentials: true,
   },
 })
 export class NotificationsGateway
@@ -29,14 +35,12 @@ export class NotificationsGateway
   @WebSocketServer()
   server: Server;
 
-  private connectedUsers = new Map<number, string>();
-
   constructor(
     private jwtService: JwtService,
     private notificationsService: NotificationsService,
   ) {}
 
-  async handleConnection(client: Socket) {
+  handleConnection(client: SocketWithUser) {
     try {
       const auth = client.handshake.auth as { token?: string };
       const token = auth.token;
@@ -46,39 +50,24 @@ export class NotificationsGateway
         return;
       }
 
-      const decoded = this.jwtService.verify<JwtPayload>(token);
-      this.connectedUsers.set(decoded.id, client.id);
+      const decoded = this.jwtService.verify<JwtPayload>(token, { secret: JWT_SECRET });
+      client.data.userId = decoded.sub;
 
-      client.join(`user_${decoded.id}`);
-      console.log(`User ${decoded.id} connected to notifications`);
+      client.join(`user_${decoded.sub}`);
     } catch {
       client.disconnect();
     }
   }
 
-  handleDisconnect(client: Socket) {
-    for (const [userId, socketId] of this.connectedUsers.entries()) {
-      if (socketId === client.id) {
-        this.connectedUsers.delete(userId);
-        break;
-      }
-    }
-  }
+  handleDisconnect(_client: SocketWithUser) {}
 
   @SubscribeMessage('subscribe-push')
   async handleSubscribePush(
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: SocketWithUser,
     @MessageBody() subscription: PushSubscriptionDto,
   ) {
     try {
-      const auth = client.handshake.auth as { token?: string };
-      const token = auth.token;
-      const decoded = this.jwtService.verify<JwtPayload>(token);
-
-      await this.notificationsService.saveSubscription(
-        decoded.id,
-        subscription,
-      );
+      await this.notificationsService.saveSubscription(client.data.userId, subscription);
       return { success: true };
     } catch {
       return { success: false };
@@ -87,29 +76,18 @@ export class NotificationsGateway
 
   @SubscribeMessage('mark-as-read')
   async handleMarkAsRead(
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: SocketWithUser,
     @MessageBody() data: { notificationId: number },
   ) {
     try {
-      const auth = client.handshake.auth as { token?: string };
-      const token = auth.token;
-      const decoded = this.jwtService.verify<JwtPayload>(token);
-
-      await this.notificationsService.markAsRead(
-        data.notificationId,
-        decoded.id,
-      );
+      await this.notificationsService.markAsRead(data.notificationId, client.data.userId);
       return { success: true };
     } catch {
       return { success: false };
     }
   }
 
-  sendNotificationToUser(userId: number, notification: any) {
+  sendNotificationToUser(userId: number, notification: unknown) {
     this.server.to(`user_${userId}`).emit('notification', notification);
-  }
-
-  sendToAll(notification: any) {
-    this.server.emit('notification', notification);
   }
 }

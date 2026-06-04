@@ -9,6 +9,7 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ChatsService } from './chats.service';
 import { Chat } from './entity/chats.entity';
+import { JWT_SECRET } from '../../config/constants';
 
 interface SocketWithUserData extends Socket {
   data: {
@@ -23,7 +24,8 @@ interface JwtPayload {
 
 @WebSocketGateway({
   cors: {
-    origin: '*',
+    origin: process.env.FRONTEND_URL ?? 'http://localhost:3000',
+    credentials: true,
   },
 })
 export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -48,7 +50,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       const payload = this.jwtService.verify<JwtPayload>(token, {
-        secret: 'super_secret_key',
+        secret: JWT_SECRET,
       });
 
       const userId = payload.sub;

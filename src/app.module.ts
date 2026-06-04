@@ -15,13 +15,13 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
   imports: [
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: 'localhost',
-      port: 5444, // 5432 - занят уже
-      username: 'postgres',
-      password: 'qwerty', // локальный тестовый пока
-      database: 'messenger_db',
+      host: process.env.DB_HOST ?? 'localhost',
+      port: Number(process.env.DB_PORT ?? 5444),
+      username: process.env.DB_USER ?? 'postgres',
+      password: process.env.DB_PASSWORD ?? 'qwerty',
+      database: process.env.DB_NAME ?? 'messenger_db',
       autoLoadEntities: true,
-      synchronize: true,
+      synchronize: true, // в продакшене выключить и использовать миграции
     }),
     UsersModule,
     AuthModule,

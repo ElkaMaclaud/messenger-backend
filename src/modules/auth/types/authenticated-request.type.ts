@@ -4,3 +4,8 @@ export interface AuthenticatedRequest extends Express.Request {
     username: string;
   };
 }
+
+export interface JwtPayload {
+  sub: number;
+  username: string;
+}

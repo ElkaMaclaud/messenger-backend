@@ -4,32 +4,24 @@ import {
   Get,
   Body,
   Param,
+  ParseIntPipe,
   UseGuards,
   Request,
-  ValidationPipe,
-  UsePipes,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CallsService } from './calls.service';
 import { CallType, Call } from './call.entity/call.entity';
 import { InitiateCallDto, AnswerCallDto } from './dto/calls.dto';
-
-interface AuthenticatedRequest extends Request {
-  user: {
-    id: number;
-    username: string;
-  };
-}
+import type { AuthenticatedRequest } from '../auth/types/authenticated-request.type';
 
 @Controller('calls')
 @UseGuards(JwtAuthGuard)
-@UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
 export class CallsController {
   constructor(private callsService: CallsService) {}
 
   @Post(':chatId/initiate')
   async initiateCall(
-    @Param('chatId') chatId: number,
+    @Param('chatId', ParseIntPipe) chatId: number,
     @Body() body: InitiateCallDto,
     @Request() req: AuthenticatedRequest,
   ): Promise<Call> {
@@ -42,7 +34,7 @@ export class CallsController {
 
   @Post(':callId/answer')
   async answerCall(
-    @Param('callId') callId: number,
+    @Param('callId', ParseIntPipe) callId: number,
     @Body() body: AnswerCallDto,
     @Request() req: AuthenticatedRequest,
   ): Promise<Call> {
@@ -51,7 +43,7 @@ export class CallsController {
 
   @Post(':callId/end')
   async endCall(
-    @Param('callId') callId: number,
+    @Param('callId', ParseIntPipe) callId: number,
     @Request() req: AuthenticatedRequest,
   ): Promise<Call> {
     return this.callsService.endCall(callId, req.user.id);
@@ -59,7 +51,7 @@ export class CallsController {
 
   @Post(':callId/reject')
   async rejectCall(
-    @Param('callId') callId: number,
+    @Param('callId', ParseIntPipe) callId: number,
     @Request() req: AuthenticatedRequest,
   ): Promise<Call> {
     return this.callsService.rejectCall(callId, req.user.id);
@@ -67,7 +59,7 @@ export class CallsController {
 
   @Get('chat/:chatId/history')
   async getCallHistory(
-    @Param('chatId') chatId: number,
+    @Param('chatId', ParseIntPipe) chatId: number,
     @Request() req: AuthenticatedRequest,
   ): Promise<Call[]> {
     return this.callsService.getCallHistory(chatId, req.user.id);
@@ -75,7 +67,7 @@ export class CallsController {
 
   @Get(':callId')
   async getCall(
-    @Param('callId') callId: number,
+    @Param('callId', ParseIntPipe) callId: number,
     @Request() req: AuthenticatedRequest,
   ): Promise<Call> {
     return this.callsService.getCallById(callId, req.user.id);

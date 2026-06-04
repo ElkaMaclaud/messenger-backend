@@ -8,34 +8,27 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
-
-interface AuthenticatedRequest extends Express.Request {
-  user: {
-    id: number;
-    username: string;
-  };
-}
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import type { AuthenticatedRequest } from './types/authenticated-request.type';
 
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('register')
-  register(@Body() dto: { username: string; password: string }) {
+  register(@Body() dto: RegisterDto) {
     return this.authService.register(dto.username, dto.password);
   }
 
   @Post('login')
-  login(@Body() dto: { username: string; password: string }) {
+  login(@Body() dto: LoginDto) {
     return this.authService.login(dto.username, dto.password);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('profile')
   getProfile(@Request() req: AuthenticatedRequest) {
-    return {
-      message: 'Это защищенный маршрут',
-      user: req.user,
-    };
+    return req.user;
   }
 }

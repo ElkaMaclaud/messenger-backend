@@ -6,9 +6,10 @@ import { CallsController } from './calls.controller';
 import { CallsGateway } from './calls.gateway';
 import { Call } from './call.entity/call.entity';
 import { Chat } from '../chats/entity/chats.entity';
+import { JWT_SECRET } from '../../config/constants';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Call, Chat]), JwtModule],
+  imports: [TypeOrmModule.forFeature([Call, Chat]), JwtModule.register({ secret: JWT_SECRET })],
   providers: [CallsService, CallsGateway],
   controllers: [CallsController],
   exports: [CallsService],

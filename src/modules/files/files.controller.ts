@@ -4,6 +4,7 @@ import {
   Get,
   Delete,
   Param,
+  ParseIntPipe,
   UseInterceptors,
   UploadedFile,
   Body,
@@ -11,27 +12,45 @@ import {
   Request,
   StreamableFile,
   Header,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { FilesService } from './files.service';
+import { ChatsService } from '../chats/chats.service';
 import { UploadFileDto } from './dto/upload-file.dto';
+import type { AuthenticatedRequest } from '../auth/types/authenticated-request.type';
 import * as fs from 'fs';
 
-interface AuthenticatedRequest extends Express.Request {
-  user: {
-    id: number;
-    username: string;
-  };
-}
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+  'video/mp4', 'video/webm',
+  'audio/mpeg', 'audio/ogg', 'audio/webm',
+  'application/pdf',
+  'text/plain',
+];
+
+const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
 
 @Controller('files')
 @UseGuards(JwtAuthGuard)
 export class FilesController {
-  constructor(private readonly filesService: FilesService) {}
+  constructor(
+    private readonly filesService: FilesService,
+    private readonly chatsService: ChatsService,
+  ) {}
 
   @Post('upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    limits: { fileSize: MAX_FILE_SIZE_BYTES },
+    fileFilter: (_req, file, cb) => {
+      if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new BadRequestException(`Тип файла не разрешён: ${file.mimetype}`), false);
+      }
+    },
+  }))
   async uploadFile(
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadFileDto,
@@ -52,16 +71,17 @@ export class FilesController {
 
   @Get('chat/:chatId')
   async getChatFiles(
-    @Param('chatId') chatId: number,
+    @Param('chatId', ParseIntPipe) chatId: number,
     @Request() req: AuthenticatedRequest,
   ) {
+    await this.chatsService.getChat(chatId, req.user.id); // проверяет членство, бросает 404/403 если нет
     return this.filesService.getChatFiles(chatId, req.user.id);
   }
 
   @Get(':id')
   @Header('Content-Type', 'application/octet-stream')
   async getFile(
-    @Param('id') fileId: number,
+    @Param('id', ParseIntPipe) fileId: number,
     @Request() req: AuthenticatedRequest,
   ): Promise<StreamableFile> {
     const file = await this.filesService.getFile(fileId, req.user.id);
@@ -75,7 +95,7 @@ export class FilesController {
 
   @Get(':id/info')
   async getFileInfo(
-    @Param('id') fileId: number,
+    @Param('id', ParseIntPipe) fileId: number,
     @Request() req: AuthenticatedRequest,
   ) {
     const file = await this.filesService.getFile(fileId, req.user.id);
@@ -92,7 +112,7 @@ export class FilesController {
 
   @Delete(':id')
   async deleteFile(
-    @Param('id') fileId: number,
+    @Param('id', ParseIntPipe) fileId: number,
     @Request() req: AuthenticatedRequest,
   ) {
     await this.filesService.deleteFile(fileId, req.user.id);

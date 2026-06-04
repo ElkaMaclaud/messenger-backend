@@ -4,12 +4,13 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { UsersModule } from '../users/users.module';
+import { JWT_SECRET } from '../../config/constants';
 
 @Module({
   imports: [
     UsersModule,
     JwtModule.register({
-      secret: 'super_secret_key',
+      secret: JWT_SECRET,
       signOptions: { expiresIn: '24h' },
     }),
   ],
