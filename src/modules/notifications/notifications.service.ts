@@ -66,7 +66,9 @@ export class NotificationsService {
       createdAt: new Date(),
     });
 
-    await this.notificationRepository.persistAndFlush(notification);
+    await this.notificationRepository
+      .getEntityManager()
+      .persistAndFlush(notification);
 
     this.sendPushNotification(userId, { title, body, data }).catch(
       console.error,
@@ -134,7 +136,7 @@ export class NotificationsService {
 
     if (notification) {
       notification.isRead = true;
-      await this.notificationRepository.persistAndFlush(notification);
+      await this.notificationRepository.getEntityManager().flush();
     }
   }
 
@@ -148,7 +150,7 @@ export class NotificationsService {
       notification.isRead = true;
     });
 
-    await this.notificationRepository.persistAndFlush(notifications);
+    await this.notificationRepository.getEntityManager().flush();
   }
 
   async getUnreadCount(userId: number): Promise<number> {

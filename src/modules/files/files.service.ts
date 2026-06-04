@@ -48,9 +48,11 @@ export class FilesService {
       uploadedBy: userId as any,
       chatId,
       messageId,
+      uploadDate: new Date(),
+      isDeleted: false,
     });
 
-    await this.fileRepository.persistAndFlush(fileRecord);
+    await this.fileRepository.getEntityManager().persistAndFlush(fileRecord);
     return fileRecord;
   }
 
@@ -75,7 +77,7 @@ export class FilesService {
     const file = await this.getFile(fileId, userId);
 
     file.isDeleted = true;
-    await this.fileRepository.persistAndFlush(file);
+    await this.fileRepository.getEntityManager().flush();
   }
 
   async getUserFiles(userId: number): Promise<File[]> {
