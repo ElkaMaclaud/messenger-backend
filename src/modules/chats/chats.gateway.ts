@@ -6,6 +6,7 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ChatsService } from './chats.service';
 import { Chat } from './entity/chats.entity';
@@ -31,6 +32,8 @@ interface JwtPayload {
 export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
+
+  private readonly logger = new Logger(ChatsGateway.name);
 
   constructor(
     private jwtService: JwtService,
@@ -63,7 +66,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         socket.join(`chat_${chat.id}`);
       });
 
-      console.log(`User ${userId} connected`);
+      this.logger.log(`User ${userId} connected`);
     } catch {
       socket.disconnect();
     }
@@ -72,13 +75,22 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   handleDisconnect(socket: SocketWithUserData): void {
     if (socket.data.userId) {
       this.connectedUsers.delete(socket.data.userId);
-      console.log(`User ${socket.data.userId} disconnected`);
+      this.logger.log(`User ${socket.data.userId} disconnected`);
     }
   }
 
   @SubscribeMessage('join_chat')
-  handleJoinChat(socket: Socket, chatId: number): void {
-    socket.join(`chat_${chatId}`);
+  async handleJoinChat(
+    socket: SocketWithUserData,
+    chatId: number,
+  ): Promise<void> {
+    try {
+      // getChat бросает, если пользователь не участник чата
+      await this.chatsService.getChat(chatId, socket.data.userId);
+      socket.join(`chat_${chatId}`);
+    } catch {
+      // доступ запрещён - молча игнорируем join
+    }
   }
 
   @SubscribeMessage('leave_chat')
