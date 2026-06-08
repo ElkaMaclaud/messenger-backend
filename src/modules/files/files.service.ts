@@ -37,7 +37,7 @@ export class FilesService {
     const uniqueFilename = `${uuidv4()}${fileExt}`;
     const filePath = path.join(this.uploadDir, uniqueFilename);
 
-    fs.writeFileSync(filePath, file.buffer);
+    await fs.promises.writeFile(filePath, file.buffer);
 
     const fileRecord = this.fileRepository.create({
       filename: uniqueFilename,
