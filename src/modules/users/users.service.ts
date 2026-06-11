@@ -16,7 +16,11 @@ export class UsersService {
   }
 
   findByUsername(username: string) {
-    return this.usersRepo.findOne({ where: { username } });
+    return this.usersRepo
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .where('user.username = :username', { username })
+      .getOne();
   }
 
   searchByUsername(
