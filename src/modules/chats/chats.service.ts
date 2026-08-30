@@ -88,7 +88,7 @@ export class ChatsService {
       .leftJoinAndSelect('chat.messages', 'messages')
       .leftJoinAndSelect('messages.author', 'author')
       .where('participants.id = :userId', { userId })
-      .orderBy('messages.createdAt', 'DESC')
+      .orderBy('messages.createdAt', 'ASC')
       .getMany();
   }
 
