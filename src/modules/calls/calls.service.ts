@@ -22,11 +22,7 @@ export class CallsService {
     private chatsRepository: Repository<Chat>,
   ) {}
 
-  async initiateCall(
-    chatId: number,
-    callerId: number,
-    type: CallType = CallType.VOICE,
-  ): Promise<Call> {
+  async assertParticipant(chatId: number, userId: number): Promise<Chat> {
     const chat = await this.chatsRepository.findOne({
       where: { id: chatId },
       relations: ['participants'],
@@ -37,10 +33,20 @@ export class CallsService {
     }
 
     const isParticipant =
-      chat.participants?.some((p) => p.id === callerId) ?? false;
+      chat.participants?.some((p) => p.id === userId) ?? false;
     if (!isParticipant) {
       throw new ForbiddenException('You are not a participant of this chat');
     }
+
+    return chat;
+  }
+
+  async initiateCall(
+    chatId: number,
+    callerId: number,
+    type: CallType = CallType.VOICE,
+  ): Promise<Call> {
+    const chat = await this.assertParticipant(chatId, callerId);
 
     let receiver: User | undefined;
     if (chat.type === ChatType.PRIVATE) {
@@ -99,20 +105,7 @@ export class CallsService {
       throw new NotFoundException('Call not found');
     }
 
-    const chat = await this.chatsRepository.findOne({
-      where: { id: call.chat.id },
-      relations: ['participants'],
-    });
-
-    if (!chat) {
-      throw new NotFoundException('Chat not found');
-    }
-
-    const isParticipant =
-      chat.participants?.some((p) => p.id === userId) ?? false;
-    if (!isParticipant) {
-      throw new ForbiddenException('You are not a participant of this chat');
-    }
+    await this.assertParticipant(call.chat.id, userId);
 
     return call;
   }
@@ -202,20 +195,7 @@ export class CallsService {
   }
 
   async getCallHistory(chatId: number, userId: number): Promise<Call[]> {
-    const chat = await this.chatsRepository.findOne({
-      where: { id: chatId },
-      relations: ['participants'],
-    });
-
-    if (!chat) {
-      throw new NotFoundException('Chat not found');
-    }
-
-    const isParticipant =
-      chat.participants?.some((p) => p.id === userId) ?? false;
-    if (!isParticipant) {
-      throw new ForbiddenException('You are not a participant of this chat');
-    }
+    await this.assertParticipant(chatId, userId);
 
     return this.callsRepository.find({
       where: { chat: { id: chatId } },

@@ -83,9 +83,22 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('join_chat')
-  handleJoinChat(socket: AuthenticatedSocket, chatId: number): void {
-    socket.join(`chat_${chatId}`);
-    this.logger.log(`User ${socket.user.username} joined chat ${chatId}`);
+  async handleJoinChat(
+    socket: AuthenticatedSocket,
+    chatId: number,
+  ): Promise<CallResponse> {
+    try {
+      await this.callsService.assertParticipant(chatId, socket.user.sub);
+
+      socket.join(`chat_${chatId}`);
+      this.logger.log(`User ${socket.user.username} joined chat ${chatId}`);
+
+      return { success: true };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      return { success: false, error: errorMessage };
+    }
   }
 
   @SubscribeMessage('leave_chat')
