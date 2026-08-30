@@ -33,3 +33,14 @@ export class AddParticipantDto {
   @IsInt()
   userId: number;
 }
+
+export interface MessageResponse {
+  id: number;
+  chatId: number;
+  content: string;
+  author: { id: number; username: string };
+  isEdited: boolean;
+  replyToId: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+}

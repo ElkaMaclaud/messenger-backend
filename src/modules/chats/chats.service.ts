@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Chat, ChatType } from './entity/chats.entity';
+import { MessageResponse } from './dto/chats.dto';
 import { Message } from './entity/message.entity';
 import { User } from '../users/user.entity/user.entity';
 
@@ -140,7 +141,7 @@ export class ChatsService {
     chatId: number,
     userId: number,
     content: string,
-  ): Promise<Message> {
+  ): Promise<MessageResponse> {
     const chat = await this.chatRepository
       .createQueryBuilder('chat')
       .leftJoinAndSelect('chat.participants', 'participants')
@@ -163,7 +164,18 @@ export class ChatsService {
       chat,
     });
 
-    return this.messageRepository.save(message);
+    const saved = await this.messageRepository.save(message);
+
+    return {
+      id: saved.id,
+      chatId: chat.id,
+      content: saved.content,
+      author: { id: author.id, username: author.username },
+      isEdited: saved.isEdited,
+      replyToId: saved.replyToId ?? null,
+      createdAt: saved.createdAt,
+      updatedAt: saved.updatedAt,
+    };
   }
 
   async addParticipant(
