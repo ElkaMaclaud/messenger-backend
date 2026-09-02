@@ -8,7 +8,7 @@ import { Repository } from 'typeorm';
 import { File } from './file.entity/file.entity';
 import * as fs from 'fs';
 import * as path from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class FilesService {
@@ -34,7 +34,7 @@ export class FilesService {
     }
 
     const fileExt = path.extname(file.originalname);
-    const uniqueFilename = `${uuidv4()}${fileExt}`;
+    const uniqueFilename = `${randomUUID()}${fileExt}`;
     const filePath = path.join(this.uploadDir, uniqueFilename);
 
     await fs.promises.writeFile(filePath, file.buffer);
