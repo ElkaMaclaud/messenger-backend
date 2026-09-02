@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@mikro-orm/nestjs';
-import { EntityRepository } from '@mikro-orm/postgresql';
-import { Notification } from '../notifications/notifications/entities/notification.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import {
+  Notification,
+  NotificationType,
+} from './notifications/entities/notification.entity';
 import * as webPush from 'web-push';
 
 // Временно отключим VAPID для тестирования
@@ -28,8 +31,8 @@ export class NotificationsService {
   private userSubscriptions = new Map<number, PushSubscription[]>();
 
   constructor(
-    @InjectRepository(Notification)  
-    private notificationRepository: EntityRepository<Notification>,
+    @InjectRepository(Notification)
+    private notificationRepository: Repository<Notification>,
   ) {}
 
   async saveSubscription(
@@ -51,30 +54,27 @@ export class NotificationsService {
     userId: number,
     title: string,
     body: string,
-    type: 'message' | 'call' | 'system' | 'friend_request',
+    type: NotificationType,
     relatedId?: number,
     data?: Record<string, any>,
   ): Promise<Notification> {
     const notification = this.notificationRepository.create({
-      user: userId as any,
+      userId,
       title,
       body,
       type,
       relatedId,
       data,
       isRead: false,
-      createdAt: new Date(),
     });
 
-    await this.notificationRepository
-      .getEntityManager()
-      .persistAndFlush(notification);
+    const saved = await this.notificationRepository.save(notification);
 
     this.sendPushNotification(userId, { title, body, data }).catch(
       console.error,
     );
 
-    return notification;
+    return saved;
   }
 
   private async sendPushNotification(
@@ -122,41 +122,30 @@ export class NotificationsService {
   }
 
   async getUserNotifications(userId: number): Promise<Notification[]> {
-    return this.notificationRepository.find(
-      { user: userId },
-      { orderBy: { createdAt: 'DESC' }, limit: 50 },
-    );
+    return this.notificationRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: 50,
+    });
   }
 
   async markAsRead(notificationId: number, userId: number): Promise<void> {
-    const notification = await this.notificationRepository.findOne({
-      id: notificationId,
-      user: userId,
-    });
-
-    if (notification) {
-      notification.isRead = true;
-      await this.notificationRepository.getEntityManager().flush();
-    }
+    await this.notificationRepository.update(
+      { id: notificationId, userId },
+      { isRead: true },
+    );
   }
 
   async markAllAsRead(userId: number): Promise<void> {
-    const notifications = await this.notificationRepository.find({
-      user: userId,
-      isRead: false,
-    });
-
-    notifications.forEach((notification) => {
-      notification.isRead = true;
-    });
-
-    await this.notificationRepository.getEntityManager().flush();
+    await this.notificationRepository.update(
+      { userId, isRead: false },
+      { isRead: true },
+    );
   }
 
   async getUnreadCount(userId: number): Promise<number> {
     return this.notificationRepository.count({
-      user: userId,
-      isRead: false,
+      where: { userId, isRead: false },
     });
   }
 }

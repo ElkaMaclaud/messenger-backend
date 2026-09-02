@@ -1,38 +1,49 @@
-import { Entity, PrimaryKey, Property, ManyToOne } from '@mikro-orm/core';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  CreateDateColumn,
+} from 'typeorm';
 import { User } from '../../users/user.entity/user.entity';
 
-@Entity()
+@Entity('files')
 export class File {
-  @PrimaryKey()
+  @PrimaryGeneratedColumn()
   id: number;
 
-  @Property()
+  @Column()
   filename: string;
 
-  @Property()
+  @Column()
   originalName: string;
 
-  @Property()
+  @Column()
   mimetype: string;
 
-  @Property()
+  @Column()
   size: number;
 
-  @Property()
+  @Column()
   path: string; // Путь на диске или URL в облаке
 
-  @Property()
-  uploadDate: Date = new Date();
+  @CreateDateColumn()
+  uploadDate: Date;
 
   @ManyToOne(() => User)
+  @JoinColumn({ name: 'uploadedById' })
   uploadedBy: User;
 
-  @Property({ nullable: true })
+  @Column()
+  uploadedById: number;
+
+  @Column({ nullable: true })
   chatId?: number; // Если файл привязан к чату
 
-  @Property({ nullable: true })
+  @Column({ nullable: true })
   messageId?: number; // Если файл привязан к сообщению
 
-  @Property({ default: false })
-  isDeleted: boolean = false;
+  @Column({ default: false })
+  isDeleted: boolean;
 }

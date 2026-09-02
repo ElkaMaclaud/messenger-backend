@@ -1,32 +1,45 @@
-import { Entity, PrimaryKey, Property, ManyToOne } from '@mikro-orm/core';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  CreateDateColumn,
+} from 'typeorm';
 import { User } from '../../../users/user.entity/user.entity';
 
-@Entity()
+export type NotificationType = 'message' | 'call' | 'system' | 'friend_request';
+
+@Entity('notifications')
 export class Notification {
-  @PrimaryKey()
+  @PrimaryGeneratedColumn()
   id: number;
 
   @ManyToOne(() => User)
+  @JoinColumn({ name: 'userId' })
   user: User;
 
-  @Property()
+  @Column()
+  userId: number;
+
+  @Column()
   title: string;
 
-  @Property({ type: 'text' })
+  @Column('text')
   body: string;
 
-  @Property({ type: 'json', nullable: true })
+  @Column({ type: 'json', nullable: true })
   data?: Record<string, any>;
 
-  @Property({ default: false })
-  isRead: boolean = false;
+  @Column({ default: false })
+  isRead: boolean;
 
-  @Property()
-  type: 'message' | 'call' | 'system' | 'friend_request';
+  @Column({ type: 'varchar' })
+  type: NotificationType;
 
-  @Property({ nullable: true })
+  @Column({ nullable: true })
   relatedId?: number; // ID сообщения, звонка и т.д.
 
-  @Property()
-  createdAt: Date = new Date();
+  @CreateDateColumn()
+  createdAt: Date;
 }

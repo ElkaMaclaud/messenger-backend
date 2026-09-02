@@ -3,8 +3,8 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@mikro-orm/nestjs';
-import { EntityRepository } from '@mikro-orm/core';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { File } from './file.entity/file.entity';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -16,7 +16,7 @@ export class FilesService {
 
   constructor(
     @InjectRepository(File)
-    private fileRepository: EntityRepository<File>,
+    private fileRepository: Repository<File>,
   ) {
     if (!fs.existsSync(this.uploadDir)) {
       fs.mkdirSync(this.uploadDir, { recursive: true });
@@ -45,28 +45,22 @@ export class FilesService {
       mimetype: file.mimetype,
       size: file.size,
       path: filePath,
-      uploadedBy: userId as any,
+      uploadedById: userId,
       chatId,
       messageId,
-      uploadDate: new Date(),
       isDeleted: false,
     });
 
-    await this.fileRepository.getEntityManager().persistAndFlush(fileRecord);
-    return fileRecord;
+    return this.fileRepository.save(fileRecord);
   }
 
   async getFile(fileId: number, userId: number): Promise<File> {
-    const file = await this.fileRepository.findOne(
-      { id: fileId, isDeleted: false },
-      { populate: ['uploadedBy'] },
-    );
+    const file = await this.fileRepository.findOne({
+      where: { id: fileId, uploadedById: userId, isDeleted: false },
+      relations: { uploadedBy: true },
+    });
 
     if (!file) {
-      throw new NotFoundException('Файл не найден');
-    }
-
-    if (file.uploadedBy.id !== userId) {
       throw new NotFoundException('Файл не найден');
     }
 
@@ -76,21 +70,20 @@ export class FilesService {
   async deleteFile(fileId: number, userId: number): Promise<void> {
     const file = await this.getFile(fileId, userId);
 
-    file.isDeleted = true;
-    await this.fileRepository.getEntityManager().flush();
+    await this.fileRepository.update(file.id, { isDeleted: true });
   }
 
   async getUserFiles(userId: number): Promise<File[]> {
-    return this.fileRepository.find(
-      { uploadedBy: userId, isDeleted: false },
-      { orderBy: { uploadDate: 'DESC' } },
-    );
+    return this.fileRepository.find({
+      where: { uploadedById: userId, isDeleted: false },
+      order: { uploadDate: 'DESC' },
+    });
   }
 
   async getChatFiles(chatId: number, userId: number): Promise<File[]> {
-    return this.fileRepository.find(
-      { chatId, isDeleted: false },
-      { orderBy: { uploadDate: 'DESC' } },
-    );
+    return this.fileRepository.find({
+      where: { chatId, isDeleted: false },
+      order: { uploadDate: 'DESC' },
+    });
   }
 }
