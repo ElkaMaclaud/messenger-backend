@@ -85,10 +85,12 @@ export class ChatsService {
   async getUserChats(userId: number): Promise<Chat[]> {
     return this.chatRepository
       .createQueryBuilder('chat')
+      .innerJoin('chat.participants', 'member', 'member.id = :userId', {
+        userId,
+      })
       .leftJoinAndSelect('chat.participants', 'participants')
       .leftJoinAndSelect('chat.messages', 'messages')
       .leftJoinAndSelect('messages.author', 'author')
-      .where('participants.id = :userId', { userId })
       .orderBy('messages.createdAt', 'ASC')
       .getMany();
   }
@@ -96,11 +98,13 @@ export class ChatsService {
   async getChat(chatId: number, userId: number): Promise<Chat> {
     const chat = await this.chatRepository
       .createQueryBuilder('chat')
+      .innerJoin('chat.participants', 'member', 'member.id = :userId', {
+        userId,
+      })
       .leftJoinAndSelect('chat.participants', 'participants')
       .leftJoinAndSelect('chat.messages', 'messages')
       .leftJoinAndSelect('messages.author', 'author')
       .where('chat.id = :chatId', { chatId })
-      .andWhere('participants.id = :userId', { userId })
       .getOne();
 
     if (!chat) {
