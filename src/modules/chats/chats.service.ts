@@ -10,6 +10,11 @@ import { MessageResponse } from './dto/chats.dto';
 import { Message } from './entity/message.entity';
 import { User } from '../users/user.entity/user.entity';
 
+const publicUserFields = (alias: string): string[] => [
+  `${alias}.id`,
+  `${alias}.username`,
+];
+
 @Injectable()
 export class ChatsService {
   constructor(
@@ -88,9 +93,11 @@ export class ChatsService {
       .innerJoin('chat.participants', 'member', 'member.id = :userId', {
         userId,
       })
-      .leftJoinAndSelect('chat.participants', 'participants')
+      .leftJoin('chat.participants', 'participants')
+      .addSelect(publicUserFields('participants'))
       .leftJoinAndSelect('chat.messages', 'messages')
-      .leftJoinAndSelect('messages.author', 'author')
+      .leftJoin('messages.author', 'author')
+      .addSelect(publicUserFields('author'))
       .orderBy('messages.createdAt', 'ASC')
       .getMany();
   }
@@ -101,9 +108,11 @@ export class ChatsService {
       .innerJoin('chat.participants', 'member', 'member.id = :userId', {
         userId,
       })
-      .leftJoinAndSelect('chat.participants', 'participants')
+      .leftJoin('chat.participants', 'participants')
+      .addSelect(publicUserFields('participants'))
       .leftJoinAndSelect('chat.messages', 'messages')
-      .leftJoinAndSelect('messages.author', 'author')
+      .leftJoin('messages.author', 'author')
+      .addSelect(publicUserFields('author'))
       .where('chat.id = :chatId', { chatId })
       .getOne();
 
@@ -133,7 +142,8 @@ export class ChatsService {
 
     return this.messageRepository
       .createQueryBuilder('message')
-      .leftJoinAndSelect('message.author', 'author')
+      .leftJoin('message.author', 'author')
+      .addSelect(publicUserFields('author'))
       .where('message.chat.id = :chatId', { chatId })
       .orderBy('message.createdAt', 'DESC')
       .skip((page - 1) * limit)
